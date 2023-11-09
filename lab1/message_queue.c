@@ -9,7 +9,9 @@
 
 #define MAX_SIZE 10000
 
-int word_count(char buffer[]){
+char *my_mq = "/my_queue";
+
+int word_count(char *buffer){
     int word_count = 0;
     char *token = strtok(buffer, " \t\n");
 
@@ -22,7 +24,7 @@ int word_count(char buffer[]){
 
 void child_process() {
     // Open the message queue for reading
-    mqd_t mq = mq_open("/my_queue", O_RDONLY);
+    mqd_t mq = mq_open(my_mq, O_RDONLY);
 
     if (mq == (mqd_t)-1) {
         perror("mq_open");
@@ -39,16 +41,17 @@ void child_process() {
         exit(EXIT_FAILURE);
     }
 
-    printf("Number of words: %d\n", word_count(buffer));
+    int counter = word_count(buffer);
+    printf("Number of words: %d\n", counter);
 
     // Close the message queue
-    mq_close(mq);
+    mq_unlink(my_mq);
     exit(EXIT_SUCCESS);
 }
 
 void parent_process() {
     // Open the message queue for writing
-    mqd_t mq = mq_open("/my_queue", O_WRONLY | O_CREAT, 0644, NULL);
+    mqd_t mq = mq_open(my_mq, O_WRONLY | O_CREAT, 0644, NULL);
 
     if (mq == (mqd_t)-1) {
         perror("mq_open");
@@ -76,7 +79,6 @@ void parent_process() {
     }
 
     // Close the message queue
-    mq_close(mq);
 }
 
 int main() {
