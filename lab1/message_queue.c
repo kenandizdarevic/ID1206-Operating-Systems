@@ -15,10 +15,17 @@ int main() {
     int stat;
     int fd[2];
 
+    int MAX_NUM_MSG = 10;
+    int MAX_SIZE = 64;
+
     // Message queue
     char *my_mq = "/mymq";
-    mqt_d mqd;
+    mqd_t mqd;
 
+    struct mq_attr attr = {
+        .mq_maxmsg = MAX_NUM_MSG,
+        .mq_msgsize = MAX_SIZE
+    };
     
     pipe(fd); // Create the pipe
 
@@ -34,7 +41,7 @@ int main() {
             mq_send(mqd, write_msg, strlen(write_msg), 0);
             // Close the message queue
             mq_close(mqd);
-            
+
             break;
         default: // Consumer
             wait(&stat);
