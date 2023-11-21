@@ -3,9 +3,10 @@
 #include <unistd.h>     /* Acess to POSIX API*/
 #include <stdlib.h>     /* MALLOC */
 
+#define MAX_BUF_MODIFICATION 15
+
 // Initialize global variables & mutex
 int buf = 0;
-int MAX_BUF_MODIFICATION = 15;
 pthread_mutex_t lock;
 
 /// @brief Prints out TID, PID & buffer value. Increments buffer.
@@ -19,22 +20,19 @@ void* thread_func(void* args) {
 
     while(1) {
 
-        if (buf >= MAX_BUF_MODIFICATION) 
-            break;
-
-        // Locks the mutex
+        // Lock mutex before checking value of buf
         pthread_mutex_lock(&lock);
-    
-        printf("TID: %lu, PID: %d, Buffer: %d\n", pthread_self(), getpid(), buf++);
-        (*mod)++;
-        // Unlcoks the mutex
-        pthread_mutex_unlock(&lock);
-        
-        // Use sleep so that other processes can enter thread_func
-        sleep(1);
-        
+        if (buf >= MAX_BUF_MODIFICATION) {
+            pthread_mutex_unlock(&lock);
+            pthread_exit(mod);
+        } 
+        else {
+            printf("TID: %lu, PID: %d, Buffer: %d\n", pthread_self(), getpid(), buf++);
+            (*mod)++;
+            // Unlcoks the mutex
+            pthread_mutex_unlock(&lock);
+        }
     }
-    pthread_exit(mod);
 }
 
 int main() {
