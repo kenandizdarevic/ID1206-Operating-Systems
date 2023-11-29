@@ -65,10 +65,8 @@ void addEntryTLB(int pageNumber, int frameNumber) {
     tlb[tlbHead].page = pageNumber;
     tlb[tlbHead].frame = frameNumber;
 
-    // Move the head of the TLB (front of the queue) to the next index
     tlbHead = (tlbHead + 1) % TLB_SIZE;
 
-    // If the TLB is not full, increment the count
     if (tlbCount < TLB_SIZE) {
         tlbCount++;
     }
@@ -87,7 +85,7 @@ void handlePageFault(int pageNumber, FILE *disk) {
 /// @brief Update TLB with FIFO replacement strategy.
 /// @param int logicalAddress 
 /// @param FILE *disk
-/// @return 
+/// @return int physicalAddress
 int translateAddress(int logicalAddress, FILE *disk) {
     int physicalAddress = 0;
 
@@ -112,7 +110,6 @@ int translateAddress(int logicalAddress, FILE *disk) {
         pageTable[pageNumber] = frameNumber;
 
         addEntryTLB(pageNumber, frameNumber);
-        printf("Added page: %d\n", pageNumber);
 
         frameNumber++;
     }
@@ -131,7 +128,7 @@ int main(int argc, char *argv[]) {
 
     }
 
-    printf("Page fault rate: %f TLB hit rate: %f\n", pageFaultCount/1000.0, TLBHit/1000.0);
+    printf("Page fault rate: %.3f TLB hit rate: %.3f\n", pageFaultCount/1000.0, TLBHit/1000.0);
 
     return 0;
 }
