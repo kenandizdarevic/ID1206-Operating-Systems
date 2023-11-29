@@ -6,6 +6,10 @@
 #define PHYSICAL_MEMORY_SIZE 65536
 #define TLB_SIZE 16
 
+int TLBHit = 0;
+int TLBMiss = 0;
+int pageFaultCount = 0;
+
 const int pageOffsetMask = 0xFF;
 const int pageNumberMask = 0xFF00;
 
@@ -20,6 +24,8 @@ typedef struct{
 }TLB;
 
 TLB tlb[TLB_SIZE];
+int tlbHead = 0;
+int tlbCount = 0;
 
 /// @brief Extracts bits 0-7, which is the page offset.
 /// @param int address 
@@ -55,6 +61,19 @@ int getFrameTLB(int pageNumber) {
     return -1;
 }
 
+void addEntryTLB(int pageNumber, int frameNumber) {
+    tlb[tlbHead].page = pageNumber;
+    tlb[tlbHead].frame = frameNumber;
+
+    // Move the head of the TLB (front of the queue) to the next index
+    tlbHead = (tlbHead + 1) % TLB_SIZE;
+
+    // If the TLB is not full, increment the count
+    if (tlbCount < TLB_SIZE) {
+        tlbCount++;
+    }
+}
+
 /// @brief Read page from disk, store it in available page frame in physical memory.
 /// @param int logicalAddress 
 /// @param FILE *disk 
@@ -71,12 +90,6 @@ void handlePageFault(int pageNumber, FILE *disk) {
 /// @return 
 int translateAddress(int logicalAddress, FILE *disk) {
     int physicalAddress = 0;
-    /*
-    * 2. Consult the TLB.
-    * 3. If TLB hit, obtain frame number from TLB.
-    * 4. If TLB miss, consult page table.
-    * 5. Frame number obtained or handle page fault.
-    */
 
     // Extract desired bits from logical address.
     int pageOffset = extractPageOffset(logicalAddress);
@@ -86,14 +99,20 @@ int translateAddress(int logicalAddress, FILE *disk) {
 
     if (frame != -1) { // TLB hit
         physicalAddress = frame * FRAME_SIZE + pageOffset;
+        TLBHit++;
     }
     else if(pageTable[pageNumber] != -1) { // TLB miss, page table hit
         physicalAddress = pageTable[pageNumber] * FRAME_SIZE + pageOffset;
+        TLBMiss++;
     } 
     else {
         handlePageFault(pageNumber, disk);
+        pageFaultCount++;
         physicalAddress = frameNumber * FRAME_SIZE + pageOffset;
         pageTable[pageNumber] = frameNumber;
+
+        addEntryTLB(pageNumber, frameNumber);
+        printf("Added page: %d\n", pageNumber);
 
         frameNumber++;
     }
@@ -107,9 +126,12 @@ int main(int argc, char *argv[]) {
     initTables();
     int logicalAddress;
     while(fscanf(addresses, "%d", &logicalAddress) != EOF) {
-        printf("Logical address: %d ", logicalAddress);
-        printf("Physical address: %d\n", translateAddress(logicalAddress, disk));
+        printf("Logical address: %d Physical address: %d\n", logicalAddress, 
+                                translateAddress(logicalAddress, disk));
+
     }
+
+    printf("Page fault rate: %f TLB hit rate: %f\n", pageFaultCount/1000.0, TLBHit/1000.0);
 
     return 0;
 }
