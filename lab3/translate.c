@@ -12,11 +12,14 @@ int pageFaultCount = 0;
 
 const int pageOffsetMask = 0xFF;
 const int pageNumberMask = 0xFF00;
+char physicalMemory[PHYSICAL_MEMORY_SIZE];
 
-// Page table has 256 entries.
-int pageTable[PAGE_TABLE_SIZE];
-int physicalMemory[PHYSICAL_MEMORY_SIZE];
 int frameNumber = 0;
+
+typedef struct {
+    int frame;
+    int valid;
+} PageTableEntry;
 
 typedef struct{
     int page;
@@ -24,6 +27,8 @@ typedef struct{
 }TLB;
 
 TLB tlb[TLB_SIZE];
+PageTableEntry pgTable[PAGE_TABLE_SIZE];
+
 int tlbHead = 0;
 int tlbCount = 0;
 
@@ -43,7 +48,9 @@ int extractPageNumber(int logicalAddress) {
 
 void initTables() {
     for(int i = 0; i < PAGE_TABLE_SIZE; i++) {
-        pageTable[i] = -1;
+        //pageTable[i] = -1;
+        pgTable[i].frame = -1;
+        pgTable[i].valid = 0;
     }
 
     for(int i = 0; i < TLB_SIZE; i++) {
@@ -53,7 +60,7 @@ void initTables() {
 }
 
 int getFrameTLB(int pageNumber) {
-    for(int i = 0; i < FRAME_SIZE; i++) {
+    for(int i = 0; i < TLB_SIZE; i++) {
         if(tlb[i].page == pageNumber) {
             return tlb[i].frame;
         }
@@ -77,7 +84,7 @@ void addEntryTLB(int pageNumber, int frameNumber) {
 /// @param FILE *disk 
 void handlePageFault(int pageNumber, FILE *disk) {
     fseek(disk, pageNumber * PAGE_SIZE, SEEK_SET);
-    fread(&pageTable[pageNumber * FRAME_SIZE], sizeof(char), PAGE_SIZE, disk);
+    fread(&physicalMemory[frameNumber * FRAME_SIZE], sizeof(char), PAGE_SIZE, disk);
 }
 
 /// @brief Translates logical address to physical address.
@@ -99,15 +106,18 @@ int translateAddress(int logicalAddress, FILE *disk) {
         physicalAddress = frame * FRAME_SIZE + pageOffset;
         TLBHit++;
     }
-    else if(pageTable[pageNumber] != -1) { // TLB miss, page table hit
-        physicalAddress = pageTable[pageNumber] * FRAME_SIZE + pageOffset;
+    else if(pgTable[pageNumber].valid == 1) { // TLB miss, page table hit
+        physicalAddress = pgTable[pageNumber].frame * FRAME_SIZE + pageOffset;
+        addEntryTLB(pageNumber, pgTable[pageNumber].frame);
         TLBMiss++;
     } 
     else {
         handlePageFault(pageNumber, disk);
         pageFaultCount++;
         physicalAddress = frameNumber * FRAME_SIZE + pageOffset;
-        pageTable[pageNumber] = frameNumber;
+        
+        pgTable[pageNumber].frame = frameNumber;
+        pgTable[pageNumber].valid = 1;
 
         addEntryTLB(pageNumber, frameNumber);
 
@@ -123,9 +133,9 @@ int main(int argc, char *argv[]) {
     initTables();
     int logicalAddress;
     while(fscanf(addresses, "%d", &logicalAddress) != EOF) {
-        printf("Logical address: %d Physical address: %d\n", logicalAddress, 
-                                translateAddress(logicalAddress, disk));
-
+        int physicalAddress = translateAddress(logicalAddress, disk);
+        printf("Virtual address: %d Physical address: %d Value: %d\n", logicalAddress, 
+                                physicalAddress, physicalMemory[physicalAddress]);
     }
 
     printf("Page fault rate: %.3f TLB hit rate: %.3f\n", pageFaultCount/1000.0, TLBHit/1000.0);
