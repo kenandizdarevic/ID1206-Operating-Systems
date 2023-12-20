@@ -1,3 +1,5 @@
 # ID1206-Operating-Systems
-KTH Royal Institute of Technology
-Introduction to operating systems.
+This repository contains:
+- Labs.
+- The PDF for the solved kernel programming.
+- Anki flashcards, based on the powerpoints.
